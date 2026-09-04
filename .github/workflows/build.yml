@@ -1,0 +1,74 @@
+name: Build Installer
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller yt-dlp
+          choco install ffmpeg -y --no-progress
+
+      - name: Download ChineseSimplified.isl
+        shell: pwsh
+        run: |
+          $isl = "$env:ProgramFiles(x86)\Inno Setup 6\Languages\ChineseSimplified.isl"
+          if (-not (Test-Path $isl)) {
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/ChineseSimplified.isl" -OutFile $isl -UseBasicParsing
+          }
+
+      - name: Build 普通版 (onedir)
+        run: |
+          pyinstaller --onedir --windowed --name "B站解析工具" --add-binary "ffmpeg.exe;." --add-data "bilibili_icon.png;." bilibili_gui.py
+          Move-Item "dist\B站解析工具" "apps_normal"
+
+      - name: Build 登录版 (onedir)
+        run: |
+          pyinstaller --onedir --windowed --name "登录版" --add-binary "ffmpeg.exe;." --add-data "bilibili_icon.png;." bilibili_gui_login.py
+          Move-Item "dist\登录版" "apps_login"
+
+      - name: Prepare 融合 (shared deps) + setup files
+        run: |
+          Copy-Item -Recurse "apps_login" "融合"
+          Copy-Item "apps_normal\B站解析工具.exe" "融合\B站解析工具.exe" -Force
+          Copy-Item "apps_normal\B站解析工具.exe" "b站解析\B站解析工具.exe" -Force
+          Copy-Item -Recurse "apps_login" "b站解析-登录版"
+          # rename login exe inside
+          Move-Item "b站解析-登录版\登录版.exe" "b站解析-登录版\登录版.exe"
+
+      - name: Build installer with Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe"
+          & $iscc "B站解析工具安装包.iss"
+          Get-ChildItem "B站解析工具安装包.exe" | Select-Object Name, Length
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup
+          path: B站解析工具安装包.exe
+
+      - name: Attach to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: B站解析工具安装包.exe
+          body_path: RELEASE_NOTES.md

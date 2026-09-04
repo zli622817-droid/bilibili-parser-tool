@@ -1,0 +1,36 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# --- PyInstaller 输出 ---
+build/
+dist/
+*.spec
+
+# --- Node / Electron ---
+node_modules/
+package-lock.json
+
+# --- Tauri ---
+src-tauri/target/
+
+# --- 打包/发布用的大文件（用 Releases 发布，不要进仓库） ---
+融合/
+b站解析/
+b站解析-登录版/
+B站解析工具/
+Cookie提取工具/
+electron-installer/
+tauri-installer/
+*.exe
+*.zip
+*.7z
+*.ico
+
+# --- 临时 / 系统 ---
+Thumbs.db
+Desktop.ini
+*.log
